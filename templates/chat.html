@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat with {{ model_name }}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #6a11cb, #2575fc);
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 800px;
+            background: rgba(255, 255, 255, 0.15);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+            height: 95vh;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        header h1 {
+            font-size: 1.8rem;
+            font-weight: bold;
+        }
+
+        .chat-container {
+            flex-grow: 1;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            overflow-y: auto;
+            margin-bottom: 15px;
+            scrollbar-width: thin;
+            scrollbar-color: #6a11cb #fff;
+        }
+
+        .chat-container::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .chat-container::-webkit-scrollbar-thumb {
+            background-color: #6a11cb;
+            border-radius: 5px;
+        }
+
+        .chat-container::-webkit-scrollbar-track {
+            background-color: transparent;
+        }
+
+        .message-container {
+            padding: 10px 15px;
+            margin-bottom: 10px;
+            border-radius: 12px;
+            max-width: 75%;
+            word-wrap: break-word;
+        }
+
+        .user-message-container {
+            background: #4caf50;
+            color: white;
+            margin-left: auto;
+            text-align: left;
+            border-radius: 15px 15px 0 15px;
+        }
+
+        .model-message-container {
+            background: #673ab7;
+            color: white;
+            margin-right: auto;
+            text-align: left;
+            border-radius: 15px 15px 15px 0;
+        }
+
+        .input-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+        }
+
+        .input-container textarea {
+            width: 80%;
+            padding: 10px;
+            font-size: 1rem;
+            border-radius: 8px;
+            border: none;
+            background: #fff;
+            color: #333;
+            resize: none;
+            height: 50px;
+        }
+
+        .input-container textarea::placeholder {
+            color: #aaa;
+        }
+
+        .input-container button {
+            width: 18%;
+            padding: 10px;
+            font-size: 1rem;
+            border: none;
+            border-radius: 8px;
+            background: #2575fc;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .input-container button:hover {
+            background: #1a62cc;
+        }
+
+        @media (max-width: 600px) {
+            header h1 {
+                font-size: 1.5rem;
+            }
+
+            .input-container textarea {
+                width: 70%;
+            }
+
+            .input-container button {
+                width: 25%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Chat with {{ model_name }}</h1>
+        </header>
+
+        <div class="chat-container" id="chat-container">
+            {% for message in conversation_history %}
+                <div class="message-container {% if message['role'] == 'user' %}user-message-container{% else %}model-message-container{% endif %}">
+                    <strong>{{ message['role'] }}:</strong> {{ message['content'] }}
+                </div>
+            {% endfor %}
+        </div>
+
+        <div class="input-container">
+            <textarea id="user-input" placeholder="Type your message..."></textarea>
+            <button id="send-button" disabled>Send</button>
+        </div>
+    </div>
+
+    <script>
+        const chatContainer = document.getElementById('chat-container');
+        const userInput = document.getElementById('user-input');
+        const sendButton = document.getElementById('send-button');
+
+        // Enable/disable button based on input
+        userInput.addEventListener('input', () => {
+            sendButton.disabled = !userInput.value.trim();
+        });
+
+        // Auto-scroll to the bottom of the chat container
+        function scrollToBottom() {
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        // Handle message sending
+        sendButton.addEventListener('click', () => {
+            const userMessage = userInput.value.trim();
+
+            if (userMessage) {
+                // Add user message to chat
+                const userMessageDiv = document.createElement('div');
+                userMessageDiv.className = 'message-container user-message-container';
+                userMessageDiv.innerHTML = `<strong>user:</strong> ${userMessage}`;
+                chatContainer.appendChild(userMessageDiv);
+                scrollToBottom();
+
+                // Clear input field and disable button
+                userInput.value = '';
+                sendButton.disabled = true;
+
+                // Send message to server
+                fetch('/chat/{{ model_name }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ user_input: userMessage })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    // Add bot response to chat
+                    const botMessageDiv = document.createElement('div');
+                    botMessageDiv.className = 'message-container model-message-container';
+                    botMessageDiv.innerHTML = `<strong>assistant:</strong> ${data.response}`;
+                    chatContainer.appendChild(botMessageDiv);
+                    scrollToBottom();
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+            }
+        });
+
+        // Scroll to bottom on page load
+        scrollToBottom();
+    </script>
+</body>
+</html>
